@@ -1,151 +1,70 @@
+import numpy as np
+import matplotlib.pyplot as plt
 import streamlit as st
-import pandas as pd
-import math
-from pathlib import Path
 
-# Set the title and favicon that appear in the Browser's tab bar.
-st.set_page_config(
-    page_title='GDP dashboard',
-    page_icon=':earth_americas:', # This is an emoji shortcode. Could be a URL too.
-)
+# Funciones de señales continuas
+def señal_continua_1(t):
+    return 2 - np.abs(t)
 
-# -----------------------------------------------------------------------------
-# Declare some useful functions.
+def señal_continua_2(t):
+    return np.piecewise(t, [t < -2, (t >= -2) & (t < 1), (t >= 1) & (t < 3), t >= 3],
+                        [0, lambda t: 2, lambda t: 1 - t, 0])
 
-@st.cache_data
-def get_gdp_data():
-    """Grab GDP data from a CSV file.
+# Secuencias discretas
+def secuencia_discreta_1():
+    return np.array([0, 0, 0, 0, 0, -3, 0, 5, 4, -2, -4, -1, 2, 5, 7, 4, -2, 0, 0, 0, 0])
 
-    This uses caching to avoid having to read the file every time. If we were
-    reading from an HTTP endpoint instead of a file, it's a good idea to set
-    a maximum age to the cache with the TTL argument: @st.cache_data(ttl='1d')
-    """
+def secuencia_discreta_2():
+    n = np.arange(-10, 11)
+    x = np.zeros_like(n, dtype=float)
+    x[(n >= -5) & (n <= 0)] = (2/3)**n[(n >= -5) & (n <= 0)]
+    x[(n >= 1) & (n <= 5)] = (8/5)**n[(n >= 1) & (n <= 5)]
+    return n, x
 
-    # Instead of a CSV on disk, you could read from an HTTP endpoint here too.
-    DATA_FILENAME = Path(__file__).parent/'data/gdp_data.csv'
-    raw_gdp_df = pd.read_csv(DATA_FILENAME)
+# Configuración de Streamlit
+st.title("Laboratorio: Transformación de Señales")
+st.write("Generación de señales continuas y discretas")
 
-    MIN_YEAR = 1960
-    MAX_YEAR = 2022
+# Menú de selección de señal
+tipo_señal = st.selectbox("Selecciona el tipo de señal", ["Continua 1", "Continua 2", "Discreta 1", "Discreta 2"])
 
-    # The data above has columns like:
-    # - Country Name
-    # - Country Code
-    # - [Stuff I don't care about]
-    # - GDP for 1960
-    # - GDP for 1961
-    # - GDP for 1962
-    # - ...
-    # - GDP for 2022
-    #
-    # ...but I want this instead:
-    # - Country Name
-    # - Country Code
-    # - Year
-    # - GDP
-    #
-    # So let's pivot all those year-columns into two: Year and GDP
-    gdp_df = raw_gdp_df.melt(
-        ['Country Code'],
-        [str(x) for x in range(MIN_YEAR, MAX_YEAR + 1)],
-        'Year',
-        'GDP',
-    )
+# Generar señales y graficar
+if tipo_señal == "Continua 1":
+    t = np.linspace(-10, 10, 400)
+    y = señal_continua_1(t)
+    plt.plot(t, y)
+    plt.title("Señal Continua 1")
+    plt.xlabel("t")
+    plt.ylabel("x(t)")
+    st.pyplot(plt.gcf())
+    plt.clf()
 
-    # Convert years from string to integers
-    gdp_df['Year'] = pd.to_numeric(gdp_df['Year'])
+elif tipo_señal == "Continua 2":
+    t = np.linspace(-10, 10, 400)
+    y = señal_continua_2(t)
+    plt.plot(t, y)
+    plt.title("Señal Continua 2")
+    plt.xlabel("t")
+    plt.ylabel("x(t)")
+    st.pyplot(plt.gcf())
+    plt.clf()
 
-    return gdp_df
+elif tipo_señal == "Discreta 1":
+    n = np.arange(-10, 11)
+    x = secuencia_discreta_1()
+    plt.stem(n, x, use_line_collection=True)
+    plt.title("Secuencia Discreta 1")
+    plt.xlabel("n")
+    plt.ylabel("x[n]")
+    st.pyplot(plt.gcf())
+    plt.clf()
 
-gdp_df = get_gdp_data()
+elif tipo_señal == "Discreta 2":
+    n, x = secuencia_discreta_2()
+    plt.stem(n, x, use_line_collection=True)
+    plt.title("Secuencia Discreta 2")
+    plt.xlabel("n")
+    plt.ylabel("x[n]")
+    st.pyplot(plt.gcf())
+    plt.clf()
 
-# -----------------------------------------------------------------------------
-# Draw the actual page
-
-# Set the title that appears at the top of the page.
-'''
-# :earth_americas: GDP dashboard
-
-Browse GDP data from the [World Bank Open Data](https://data.worldbank.org/) website. As you'll
-notice, the data only goes to 2022 right now, and datapoints for certain years are often missing.
-But it's otherwise a great (and did I mention _free_?) source of data.
-'''
-
-# Add some spacing
-''
-''
-
-min_value = gdp_df['Year'].min()
-max_value = gdp_df['Year'].max()
-
-from_year, to_year = st.slider(
-    'Which years are you interested in?',
-    min_value=min_value,
-    max_value=max_value,
-    value=[min_value, max_value])
-
-countries = gdp_df['Country Code'].unique()
-
-if not len(countries):
-    st.warning("Select at least one country")
-
-selected_countries = st.multiselect(
-    'Which countries would you like to view?',
-    countries,
-    ['DEU', 'FRA', 'GBR', 'BRA', 'MEX', 'JPN'])
-
-''
-''
-''
-
-# Filter the data
-filtered_gdp_df = gdp_df[
-    (gdp_df['Country Code'].isin(selected_countries))
-    & (gdp_df['Year'] <= to_year)
-    & (from_year <= gdp_df['Year'])
-]
-
-st.header('GDP over time', divider='gray')
-
-''
-
-st.line_chart(
-    filtered_gdp_df,
-    x='Year',
-    y='GDP',
-    color='Country Code',
-)
-
-''
-''
-
-
-first_year = gdp_df[gdp_df['Year'] == from_year]
-last_year = gdp_df[gdp_df['Year'] == to_year]
-
-st.header(f'GDP in {to_year}', divider='gray')
-
-''
-
-cols = st.columns(4)
-
-for i, country in enumerate(selected_countries):
-    col = cols[i % len(cols)]
-
-    with col:
-        first_gdp = first_year[first_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-        last_gdp = last_year[last_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-
-        if math.isnan(first_gdp):
-            growth = 'n/a'
-            delta_color = 'off'
-        else:
-            growth = f'{last_gdp / first_gdp:,.2f}x'
-            delta_color = 'normal'
-
-        st.metric(
-            label=f'{country} GDP',
-            value=f'{last_gdp:,.0f}B',
-            delta=growth,
-            delta_color=delta_color
-        )
